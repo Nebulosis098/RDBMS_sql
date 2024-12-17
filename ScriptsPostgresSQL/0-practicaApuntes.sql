@@ -79,3 +79,5 @@ select pub_name as Nombre, city as Ciudad, state as Estado, country as Pais
 select * from titles t 
 	limit 10;
 
+--------------------------SUBQUERIES EN CLAUSULAS FROM------------------------
+

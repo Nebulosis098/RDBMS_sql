@@ -87,7 +87,109 @@ $$
 $$;
 
 -- Ejemplo de WHILE
+-- Incrementamos el precio de un producto en un 5% hasta que su precio supere o alcance un valor especifica, 500USD por ejemplo.
 
+do
+$$
+	declare
+		precio_actual numeric(38,2);
+		incremento numeric(38,2) := 0.05; -- Esto esta hardcodeado pero podria ser una variable o directamente multiplicar precio_actual * 1.05.
+	begin
+		-- Cargamos el precio de un producto a incrementar
+		select precio_unitario into precio_actual
+			from producto.producto where id = 1;
+		-- Generacion del bucle while
+		while precio_actual < 500 loop
+			precio_actual := precio_actual * (1 + incremento);
+
+			update producto.producto
+				set precio_unitario = precio_actual
+			where id = 1;
+
+			-- Mostramos el precio actualizado en cada iteracion
+			raise notice 'Nuevo precio actualizado a: %', precio_actual;
+			end loop;	
+		end while;
+	end;
+$$;
+
+
+--------------------------------------------------------USO DE SECUENCIAS-----------------------------------------------------------
+-- A good practice and usefull to manage primary keys and every unique and incremental field.
+
+-- Creating a sequence
+create sequence persona.persona_sequence 
+	start with 1 -- Initial value
+	increment by 1; -- Incremental gap
+	
+--------------------------------------------------------MANEJO DE TRANSACCIONES-----------------------------------------------------------
+-- Ejemplo de COMMIT y ROLLBACK 
+
+begin transaction;
+	-- Primer accion de la transaccion
+	update persona.sucursal
+		set descripcion = 'Sucursal Actualizada'
+	where codigo = 123;
+	
+	-- Segunda accion de la transaccion
+	update persona.cliente
+		set fecha_alta = current_date
+	where codigo = 456;
+	
+commit transaction; -- Confirmamos las acciones de la transaccion. 
+
+--  Abrimos otra para ejemplo ROLLBACK
+
+begin transaction; 
+	-- Primer accion de la transaccion
+	update persona.sucursal
+		set descripcion = 'Sucursal Actualizada'
+	where codigo = 123;
+
+	-- Segunda accion de la transaccion
+	update persona.cliente
+		set fecha_alta = current_date
+	where codigo = 456;
+
+rollback transaction; -- Revertimos cambios en caso de ERROR
+
+-- Podemos realizar un MANEJO DE ERRORES en transacciones usando bloques BEGIN y EXCEPTION
+
+do
+$$ 
+	begin
+		-- Iniciamos la transaccion
+		begin transaction;
+			-- Actulizamos la sucursal
+
+			-- Actualizamos el cliente
+
+			-- Si fue todo bien, confirmamos la transaccion
+			commit transaction;
+
+		-- Exceptuamos si hay algun error
+		exception 
+			when others then 
+			-- En caso de error, comunicamos y revertimos la transaccion
+			raise notice 'Error en la transaccion. Se han revertido los cambios.';
+			rollback transaction;
+	end;
+$$;
+
+--------------------------------------------------------VERIFICAR LOCKS EN TRANSACCIONES EN CURSO-----------------------------------------------------------
+-- Usamos la vista del sistema pg_locks
+
+select pg_stat_activity.datname,
+	   pg_stat_activity.pid,
+	   pg_stat_activity.usename,
+	   pg_stat_activity.query,
+	   pg_locks.locktype,
+	   pg_locks.mode,
+	   pg_locks.granted,
+	   pg_locks.relation::regclass as locked_table
+	   
+	   from pg_locks join pg_stat_activity on pg_locks.pid = pg_stat_activity.pid
+	   where pg_stat_activity.state = 'active';
 
 
 

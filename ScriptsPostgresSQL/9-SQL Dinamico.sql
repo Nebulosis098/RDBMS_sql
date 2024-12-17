@@ -23,6 +23,7 @@ select * from sql_dinamico('venta.factura', 'id_cliente');
 --necesitamos generar una salida donde las columnas de mes son variables en función de un
 --rango (por ejemplo desde marzo-2022 hasta junio-2023)
 
+create sequence seq_test_sintaxis start with 1 increment by 2;
 
 --IMPORTACION DE DATOS DESDE ARCHIVO
 --Función en PostgreSQL para importar marcas. La ubicación del
@@ -37,7 +38,7 @@ as
 $$
 	declare
 		registro record;
-		contador_marcasa := 0;
+		contador_marcas := 0;
 		sql_copy text;
 		max_codigo integer;
 	begin
@@ -54,9 +55,28 @@ $$
 		-- Obtenemos el valor maximo actual de 'codigo' en la tabla de marcas
 		select coalesce(max(codigo), 0) into max_codigo from producto.marca; 
 		
-		-- Recorremos cada registro e insertamos en la tabal de marca si no existe
+		-- Recorremos cada registro e insertamos en la tabla de marca si no existe
+		for registro in select distinct marca from temp_marcas loop 
+			-- Verificamos si la marca existe
+			if (registro.marca is not null and not exists (select 1 from producto.marca where descripcion = registro.marca)) then 
+				-- Insertar la nueva marca con un codigo correlativo y un id usando la secuencia
+				insert into producto.marca(id, version, codigo, descripcion)
+					values(nextval('public.seq_test_sintaxis)', 1, max_codigo + 1, registro.marca);
+				
+				-- Incrementamos contadores correspondientes
+				contador_marcas := contador_marcas + 1;
+				max_codigo := max_codigo + 1;
+			end if;
+		end loop;
+
+		-- Conteo de registros procesados y marcas nuevas insertadas
+		return query select 
+							cast((select count(*) from temp_marcas) as int) as total_registros;
+							cast(contador_marcas as int) as marcas_nuevas;
 		
-		--FALTA COMPLETAR
+		-- Limpiar tablas temporales
+		drop table if exists temp_marcas_csv;
+		drop table if exists temp_marcas;				
 
 	end;
 $$;

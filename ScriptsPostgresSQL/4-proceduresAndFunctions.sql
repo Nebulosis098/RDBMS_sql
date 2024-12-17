@@ -25,7 +25,7 @@ call agregar_cliente('Juen Perez', 'Direccion Falsa 123', 'jperez@hotmail.com');
 --Funcion para calcular el total de ventas de un cliente
 create or replace function total_ventas_cliente(bigint)
 returns numeric 
-language plpgsql
+language plpgsql 
 as $$
 declare
 	total_retornar numeric;
