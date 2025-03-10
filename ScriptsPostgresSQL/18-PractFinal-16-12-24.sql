@@ -143,12 +143,46 @@ Esta columna debe registrar la cantidad de actualizaciones realizadas en cada fi
 ser 0 para las inserciones y se incrementará con cada actualización. Considerar que la tabla puede tener filas previamente 
 cargadas y no se quieren perder.*/
 
+--Adding column version to venta.factura and venta.factura_estado
+alter table venta.factura add column version integer default 0 not null;
+alter table venta.factura_estado add column version integer default 0 not null;
 
+--Updating existing rows
+update venta.fatura set version = 0 where version is null;
+update vena.factuar_estado set version = 0 where version is null;
+
+--Creating trigger function to increment version on update.
+create or replace function t_increment_version()
+returns trigger
+language plpgsql
+as
+$function$
+begin
+	new.version = old.version + 1;
+	return new;
+end
+$function$;
+
+--Creating triggers to increment version on update.
+create trigger tgr_increment_version
+before update on venta.factura
+for each row
+execute procedure t_increment_version();
+
+create trigger tgr_increment_version
+before update on venta.factura_estado
+for each row
+execute procedure t_increment_version();
 
 /*b. Ejemplo de inserción en factura y factura_estado:
-Insertar una nueva factura en estado
-"En trámite" utilizando secuencias para numerar los ids. Actualizar la columna
-id _estado_actual de la tabla venta.factura para reflejar el estado actual.*/
+Insertar una nueva factura en estado "En trámite" utilizando secuencias para numerar los ids. 
+Actualizar la columna id _estado_actual de la tabla venta.factura para reflejar el estado actual.*/
+
+--Define the sequence for factura and factura_estado
+create sequence factura_seq start with 0 increment by 1;	
+create sequence factura_estado_seq start with 0 increment by 1;	
+
+--Inserting a new factura in "En trámite" state
 
 
 /*c. Ejemplo de actualización del estado:
@@ -156,13 +190,39 @@ Cambiar el estado de la factura insertada en el punto anterior a "Confirmado".
 estado actual de la factura.*/
 
 
+
 /*d. Script para actualizar el total de la factura:
 Implementar un script en PostgreSQL que:
-• Inicie transacción.
-• Lea el valor actual del total de la factura en una variable.
-Aumente el total en un 10%.
-Actualice con el valor calculado los datos de la factura, verificando que no haya ocurrido otra actualización durante la transacción. Si hubiera inconsistencias, se debe cancelar la transacción.
-• Confirmar la transaccion.*/
+- Inicie transacción.
+- Lea el valor actual del total de la factura en una variable.
+- Aumente el total en un 10%.
+- Actualice con el valor calculado los datos de la factura, verificando que no haya ocurrido otra actualización durante 
+la transacción. Si hubiera inconsistencias, se debe cancelar la transacción.
+- Confirmar la transaccion.*/
+
+begin transaction
+declare 
+	id_factura_a_actualizar integer := 27;
+	total_actual numeric(38, 2);
+	total_nuevo numeric(38, 2);
+begin
+	select total into total_actual
+	from venta.factura
+	where id = id_factura_a_actualizar;
+
+	total_nuevo := total_actual * 1.10;
+
+	update venta.factura
+	set total = total_nuevo
+	where id = id_factura_a_actualizar and total = total_actual;
+
+	if not found then
+		raise exception 'La factura fue actualizada por otro usuario';
+		rollback transaction;
+	end if;
+
+	commit transaction;
+end;
 
 -----PRÁCTICA PARA GENERAR LA FUNCIÓN QUE VIENE DADA EN EL ENUNCIADO EJERCICIO 1-----
 -- DROP FUNCTION public.f_calcular_performance_empleados(int4);
